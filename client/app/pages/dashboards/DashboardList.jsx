@@ -19,6 +19,7 @@ import Layout from "@/components/layouts/ContentWithSidebar";
 
 import { Dashboard } from "@/services/dashboard";
 import { currentUser } from "@/services/auth";
+import Group from "@/services/group";
 import routes from "@/services/routes";
 
 import DashboardListEmptyState from "./components/DashboardListEmptyState";
@@ -81,6 +82,17 @@ function DashboardListExtraActions(props) {
 }
 
 function DashboardList({ controller }) {
+  // 현재 로그인 사용자 그룹명 로드 (id 리스트를 이름으로 매핑)
+  const [userGroupNames, setUserGroupNames] = React.useState([]);
+  React.useEffect(() => {
+    Group.query()
+      .then(groups => {
+        const ids = Array.isArray(currentUser.groups) ? currentUser.groups : [];
+        const names = groups.filter(g => ids.includes(g.id)).map(g => g.name);
+        setUserGroupNames(names);
+      })
+      .catch(() => setUserGroupNames([]));
+  }, []);
   const {
     areExtraActionsAvailable,
     listColumns: tableColumns,
@@ -94,12 +106,18 @@ function DashboardList({ controller }) {
         <PageHeader
           title={controller.params.pageTitle}
           actions={
-            currentUser.hasPermission("create_dashboard") ? (
-              <Button block type="primary" onClick={() => CreateDashboardDialog.showModal()}>
-                <i className="fa fa-plus m-r-5" aria-hidden="true" />
-                New Dashboard
-              </Button>
-            ) : null
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <span style={{ fontWeight: 700, color: "#000", whiteSpace: "nowrap" }}>
+                {currentUser.name}
+                {userGroupNames.length ? `(${userGroupNames.join(", ")})` : ""}
+              </span>
+              {currentUser.hasPermission("create_dashboard") ? (
+                <Button block type="primary" onClick={() => CreateDashboardDialog.showModal()}>
+                  <i className="fa fa-plus m-r-5" aria-hidden="true" />
+                  New Dashboard
+                </Button>
+              ) : null}
+            </div>
           }
         />
         <Layout>
