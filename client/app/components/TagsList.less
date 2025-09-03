@@ -39,6 +39,19 @@
     }
 
     .ant-menu-item-selected {
+      // 선택된 태그: 어두운 배경 + 흰색 글씨
+      background-color: #363745 !important;
+      color: #fff !important;
+      font-weight: 600;
+      &:hover,
+      &:active,
+      &:focus,
+      &:focus-within {
+        color: #fff !important;
+      }
+      .plain-button {
+        color: #fff !important;
+      }
       .ant-badge-count {
         background-color: @primary-color;
         color: white;

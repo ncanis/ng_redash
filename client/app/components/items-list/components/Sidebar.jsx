@@ -140,13 +140,13 @@ ProfileImage.propTypes = {
     Tags
  */
 
-export function Tags({ url, onChange, showUnselectAll }) {
+export function Tags({ url, onChange, showUnselectAll, selected }) {
   if (url === "") {
     return null;
   }
   return (
     <div className="m-b-10">
-      <TagsList tagsUrl={url} onUpdate={onChange} showUnselectAll={showUnselectAll} />
+      <TagsList tagsUrl={url} onUpdate={onChange} showUnselectAll={showUnselectAll} selected={selected} />
     </div>
   );
 }
@@ -156,4 +156,5 @@ Tags.propTypes = {
   onChange: PropTypes.func.isRequired,
   showUnselectAll: PropTypes.bool,
   unselectAllButtonTitle: PropTypes.string,
+  selected: PropTypes.array,
 };

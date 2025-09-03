@@ -72,7 +72,7 @@ const listColumns = [
   Columns.dateTime.sortable({
     title: "Created At",
     field: "created_at",
-    width: "1%",
+    width: "200px", // 시간 컬럼 길이 고정(200px)으로 줄바꿈 방지
   }),
 ];
 
@@ -111,7 +111,13 @@ function DashboardList({ controller }) {
               onChange={controller.updateSearch}
             />
             <Sidebar.Menu items={sidebarMenu} selected={controller.params.currentPage} />
-            <Sidebar.Tags url="api/dashboards/tags" onChange={controller.updateSelectedTags} showUnselectAll />
+            {/* 뒤로가기 시 태그 필터 유지: 현재 선택된 태그 전달 */}
+            <Sidebar.Tags
+              url="api/dashboards/tags"
+              onChange={controller.updateSelectedTags}
+              showUnselectAll
+              selected={controller.selectedTags}
+            />
           </Layout.Sidebar>
           <Layout.Content>
             <div data-test="DashboardLayoutContent">

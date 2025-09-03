@@ -17,11 +17,13 @@ type TagsListProps = {
   tagsUrl: string;
   showUnselectAll: boolean;
   onUpdate?: (selectedTags: string[]) => void;
+  // 현재 선택된 태그를 외부에서 제어(뒤로가기 복원 등)
+  selected?: string[];
 };
 
-function TagsList({ tagsUrl, showUnselectAll = false, onUpdate }: TagsListProps): JSX.Element | null {
+function TagsList({ tagsUrl, showUnselectAll = false, onUpdate, selected = [] }: TagsListProps): JSX.Element | null {
   const [allTags, setAllTags] = useState<Tag[]>([]);
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [selectedTags, setSelectedTags] = useState<string[]>(selected || []);
 
   useEffect(() => {
     let isCancelled = false;
@@ -36,6 +38,11 @@ function TagsList({ tagsUrl, showUnselectAll = false, onUpdate }: TagsListProps)
       isCancelled = true;
     };
   }, [tagsUrl]);
+
+  // 외부(selected) 변경 시 내부 상태 동기화
+  useEffect(() => {
+    setSelectedTags(selected || []);
+  }, [selected]);
 
   const toggleTag = useCallback(
     (event, tag) => {

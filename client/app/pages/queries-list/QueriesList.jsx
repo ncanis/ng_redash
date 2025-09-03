@@ -73,12 +73,16 @@ const listColumns = [
     }
   ),
   Columns.custom((text, item) => item.user.name, { title: "Created By", width: "1%" }),
-  Columns.dateTime.sortable({ title: "Created At", field: "created_at", width: "1%" }),
+  Columns.dateTime.sortable({
+    title: "Created At",
+    field: "created_at",
+    width: "200px", // 시간 컬럼 길이 고정(200px)으로 줄바꿈 방지
+  }),
   Columns.dateTime.sortable({
     title: "Last Executed At",
     field: "retrieved_at",
     orderByField: "executed_at",
-    width: "1%",
+    width: "200px", // 마지막 실행 시간 컬럼도 동일하게 200px 고정
   }),
   Columns.custom.sortable((text, item) => <SchedulePhrase schedule={item.schedule} isNew={item.isNew()} />, {
     title: "Refresh Schedule",
@@ -138,7 +142,13 @@ function QueriesList({ controller }) {
               onChange={controller.updateSearch}
             />
             <Sidebar.Menu items={sidebarMenu} selected={controller.params.currentPage} />
-            <Sidebar.Tags url="api/queries/tags" onChange={controller.updateSelectedTags} showUnselectAll />
+            {/* 뒤로가기 시 태그 필터 유지: 현재 선택된 태그 전달 */}
+            <Sidebar.Tags
+              url="api/queries/tags"
+              onChange={controller.updateSelectedTags}
+              showUnselectAll
+              selected={controller.selectedTags}
+            />
           </Layout.Sidebar>
           <Layout.Content>
             {controller.isLoaded && controller.isEmpty ? (
