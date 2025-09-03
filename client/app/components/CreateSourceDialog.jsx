@@ -31,18 +31,24 @@ class CreateSourceDialog extends React.Component {
     imageFolder: PropTypes.string.isRequired,
     helpTriggerPrefix: PropTypes.string,
     onCreate: PropTypes.func.isRequired,
+    // Optional: start with a given type and prefill values
+    // (클론 용도) 타입을 미리 선택하고 폼 값을 사전 채움
+    defaultSelectedType: PropTypes.object,
+    initialTarget: PropTypes.shape({ name: PropTypes.string, options: PropTypes.object }),
   };
 
   static defaultProps = {
     types: [],
     helpTriggerPrefix: null,
+    defaultSelectedType: null, // 미지정 시 타입 선택 단계부터 시작
+    initialTarget: null, // 미지정 시 빈 폼으로 시작
   };
 
   state = {
     searchText: "",
-    selectedType: null,
+    selectedType: this.props.defaultSelectedType, // 지정되면 타입 선택 단계 생략
     savingSource: false,
-    currentStep: StepEnum.SELECT_TYPE,
+    currentStep: this.props.defaultSelectedType ? StepEnum.CONFIGURE_IT : StepEnum.SELECT_TYPE, // 선택된 타입이 있으면 설정 단계부터
   };
 
   formId = uniqueId("sourceForm");
@@ -101,9 +107,10 @@ class CreateSourceDialog extends React.Component {
   }
 
   renderForm() {
-    const { imageFolder, helpTriggerPrefix } = this.props;
+    const { imageFolder, helpTriggerPrefix, initialTarget } = this.props;
     const { selectedType } = this.state;
-    const fields = helper.getFields(selectedType);
+    // initialTarget이 있으면 해당 값으로 폼을 사전 채움
+    const fields = helper.getFields(selectedType, initialTarget || undefined);
     const helpTriggerType = `${helpTriggerPrefix}${toUpper(selectedType.type)}`;
     return (
       <div>

@@ -5,7 +5,9 @@ import PropTypes from "prop-types";
 import Button from "antd/lib/button";
 import routeWithUserSession from "@/components/ApplicationArea/routeWithUserSession";
 import navigateTo from "@/components/ApplicationArea/navigateTo";
-import CardsList from "@/components/cards-list/CardsList";
+// 테이블 UI로 전환하기 위해 Ant Design Table/Link 사용
+import Table from "antd/lib/table";
+import Link from "@/components/Link";
 import LoadingState from "@/components/items-list/components/LoadingState";
 import CreateSourceDialog from "@/components/CreateSourceDialog";
 import DynamicComponent, { registerComponent } from "@/components/DynamicComponent";
@@ -19,26 +21,69 @@ import recordEvent from "@/services/recordEvent";
 import routes from "@/services/routes";
 
 export function DataSourcesListComponent({ dataSources, onClickCreate }) {
-  const items = dataSources.map(dataSource => ({
-    title: dataSource.name,
-    imgSrc: `${IMG_ROOT}/${dataSource.type}.png`,
-    href: `data_sources/${dataSource.id}`,
-  }));
+  // 데이터 소스가 없을 때: 기존 빈 상태 유지
+  if (isEmpty(dataSources)) {
+    return (
+      <div className="text-center">
+        There are no data sources yet.
+        {policy.isCreateDataSourceEnabled() && (
+          <div className="m-t-5">
+            <PlainButton type="link" onClick={onClickCreate} data-test="CreateDataSourceLink">
+              Click here
+            </PlainButton>{" "}
+            to add one.
+          </div>
+        )}
+      </div>
+    );
+  }
 
-  return isEmpty(dataSources) ? (
-    <div className="text-center">
-      There are no data sources yet.
-      {policy.isCreateDataSourceEnabled() && (
-        <div className="m-t-5">
-          <PlainButton type="link" onClick={onClickCreate} data-test="CreateDataSourceLink">
-            Click here
-          </PlainButton>{" "}
-          to add one.
-        </div>
-      )}
-    </div>
-  ) : (
-    <CardsList items={items} />
+  // Grid(CardsList) 대신 Table 컬럼 정의
+  // 주의: 생성시간(created_at)은 서버에서 제공하지 않아 제외함
+  const columns = [
+    {
+      title: "",
+      dataIndex: "type",
+      key: "icon",
+      width: 48,
+      // 데이터 소스 타입 아이콘
+      render: type => <img src={`${IMG_ROOT}/${type}.png`} alt={type} width="24" />,
+    },
+    {
+      title: "Name",
+      dataIndex: "name",
+      key: "name",
+      // 이름 기준 정렬 및 상세(Edit) 페이지 링크
+      sorter: (a, b) => (a.name || "").localeCompare(b.name || ""),
+      render: (name, record) => <Link href={`data_sources/${record.id}`}>{name}</Link>,
+    },
+    {
+      title: "Type",
+      dataIndex: "type",
+      key: "type",
+      // 타입 문자열 정렬
+      sorter: (a, b) => (a.type || "").localeCompare(b.type || ""),
+      render: type => <span className="monospace">{type}</span>,
+    },
+    {
+      title: "ID",
+      dataIndex: "id",
+      key: "id",
+      // ID 숫자 정렬
+      sorter: (a, b) => (a.id || 0) - (b.id || 0),
+      width: 100,
+    },
+  ];
+
+  return (
+    // 표 형태로 목록 표시 (페이지네이션 포함)
+    <Table
+      size="middle"
+      rowKey={record => record.id}
+      dataSource={dataSources}
+      columns={columns}
+      pagination={{ pageSize: 20, showSizeChanger: true, pageSizeOptions: ["10", "20", "50", "100"] }}
+    />
   );
 }
 

@@ -243,6 +243,7 @@ const config = {
     ignored: /\.sw.$/
   },
   devServer: {
+    port: 5000,
     devMiddleware: {
       index: "/static/index.html",
       publicPath: staticPath,

@@ -7,6 +7,8 @@ import routeWithUserSession from "@/components/ApplicationArea/routeWithUserSess
 import navigateTo from "@/components/ApplicationArea/navigateTo";
 import LoadingState from "@/components/items-list/components/LoadingState";
 import DynamicForm from "@/components/dynamic-form/DynamicForm";
+// 클론(복제) 시 생성 다이얼로그 재사용을 위해 추가
+import CreateSourceDialog from "@/components/CreateSourceDialog";
 import helper from "@/components/dynamic-form/dynamicFormHelper";
 import HelpTrigger, { TYPES as HELP_TRIGGER_TYPES } from "@/components/HelpTrigger";
 import wrapSettingsTab from "@/components/SettingsWrapper";
@@ -39,6 +41,14 @@ class EditDataSource extends React.Component {
         DataSource.types().then(types => this.setState({ type: find(types, { type }), loading: false }));
       })
       .catch(error => this.props.onError(error));
+  }
+
+  componentWillUnmount() {
+    // 열려 있는 클론 다이얼로그가 있으면 정리
+    if (this.cloneDialog) {
+      this.cloneDialog.dismiss();
+      this.cloneDialog = null;
+    }
   }
 
   saveDataSource = (values, successCallback, errorCallback) => {
@@ -78,6 +88,80 @@ class EditDataSource extends React.Component {
     });
   };
 
+  // CreateSourceDialog에서 제출된 값으로 실제 Data Source 생성
+  createDataSourceFromDialog = (selectedType, values) => {
+    const target = { options: {}, type: selectedType.type };
+    helper.updateTargetWithValues(target, values);
+    return DataSource.create(target);
+  };
+
+  cloneDataSource = callback => {
+    const { dataSource, type } = this.state;
+
+    // 시크릿(비밀번호/파일 등) 필드는 API가 값을 반환하지 않으므로 그대로 복제할 수 없음
+    // 폼 정의에서 password/file 타입을 찾아 사전 채움(prefill) 대상에서 제외
+    const fields = helper.getFields(type, dataSource);
+    const secretFieldNames = fields.filter(f => f.type === "password" || f.type === "file").map(f => f.name);
+
+    const openCloneDialogWithName = name => {
+      const clonedOptions = { ...dataSource.options };
+      secretFieldNames.forEach(k => {
+        if (k in clonedOptions) delete clonedOptions[k];
+      });
+
+      // 타입은 고정하고, 클론한 옵션(시크릿 제외)과 새 이름을 미리 채워 다이얼로그 오픈
+      this.cloneDialog = CreateSourceDialog.showModal({
+        types: [type],
+        sourceType: "Data Source",
+        imageFolder: IMG_ROOT,
+        helpTriggerPrefix: "DS_",
+        onCreate: this.createDataSourceFromDialog,
+        defaultSelectedType: type,
+        initialTarget: { name, options: clonedOptions },
+      });
+
+      this.cloneDialog
+        .onClose((result = {}) => {
+          this.cloneDialog = null;
+          if (result.success) {
+            notification.success("Data source cloned successfully."); // 생성 성공 안내
+            if (secretFieldNames.length > 0) {
+              notification.info(
+                "Action Required:",
+                "For security, secret fields (e.g., passwords, keys) were not copied. Please re-enter them.",
+                { duration: 10 }
+              );
+            }
+            navigateTo(`data_sources/${result.data.id}`);
+          } else {
+            callback();
+          }
+        })
+        .onDismiss(() => {
+          this.cloneDialog = null;
+          callback();
+        });
+    };
+
+    // 이름 중복 방지: “(copy)”, “(copy 2)” 등 접미사 부여
+    DataSource.query()
+      .then(items => {
+        const existingNames = items.map(ds => ds.name);
+        const base = dataSource.name || "Data Source";
+        let candidate = `${base} (copy)`;
+        if (existingNames.includes(candidate)) {
+          let i = 2;
+          while (existingNames.includes(`${base} (copy ${i})`)) i += 1;
+          candidate = `${base} (copy ${i})`;
+        }
+        openCloneDialogWithName(candidate);
+      })
+      .catch(() => {
+        const base = dataSource.name || "Data Source";
+        openCloneDialogWithName(`${base} (copy)`);
+      });
+  };
+
   testConnection = callback => {
     const { dataSource } = this.state;
     DataSource.test({ id: dataSource.id })
@@ -107,6 +191,7 @@ class EditDataSource extends React.Component {
       fields,
       type,
       actions: [
+        { name: "Clone", pullRight: true, disableWhenDirty: true, callback: this.cloneDataSource },
         { name: "Delete", type: "danger", callback: this.deleteDataSource },
         { name: "Test Connection", pullRight: true, callback: this.testConnection, disableWhenDirty: true },
       ],
