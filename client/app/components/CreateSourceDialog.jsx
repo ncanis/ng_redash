@@ -110,7 +110,21 @@ class CreateSourceDialog extends React.Component {
     const { imageFolder, helpTriggerPrefix, initialTarget } = this.props;
     const { selectedType } = this.state;
     // initialTarget이 있으면 해당 값으로 폼을 사전 채움
-    const fields = helper.getFields(selectedType, initialTarget || undefined);
+    const baseFields = helper.getFields(selectedType, initialTarget || undefined);
+    const fields = [
+      ...baseFields,
+      {
+        name: "ngbe_game",
+        title: "NGBE_GAME",
+        type: "checkbox",
+        initialValue: false,
+        contentAfter: (
+          <small className="text-muted">
+            체크 시 동일한 설정으로 3개의 Data Source가 생성합니다.<br/>Name + (BASIC_VIEW, MKT_VIEW, REV_VIEW)
+          </small>
+        ),
+      },
+    ];
     const helpTriggerType = `${helpTriggerPrefix}${toUpper(selectedType.type)}`;
     return (
       <div>

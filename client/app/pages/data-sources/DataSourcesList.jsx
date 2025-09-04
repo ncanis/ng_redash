@@ -3,6 +3,7 @@ import React from "react";
 import PropTypes from "prop-types";
 
 import Button from "antd/lib/button";
+import Modal from "antd/lib/modal";
 import routeWithUserSession from "@/components/ApplicationArea/routeWithUserSession";
 import navigateTo from "@/components/ApplicationArea/navigateTo";
 // 테이블 UI로 전환하기 위해 Ant Design Table/Link 사용
@@ -19,8 +20,9 @@ import DataSource, { IMG_ROOT } from "@/services/data-source";
 import { policy } from "@/services/policy";
 import recordEvent from "@/services/recordEvent";
 import routes from "@/services/routes";
+import notification from "@/services/notification";
 
-export function DataSourcesListComponent({ dataSources, onClickCreate }) {
+export function DataSourcesListComponent({ dataSources, onClickCreate, onClone, onDelete }) {
   // 데이터 소스가 없을 때: 기존 빈 상태 유지
   if (isEmpty(dataSources)) {
     return (
@@ -66,6 +68,26 @@ export function DataSourcesListComponent({ dataSources, onClickCreate }) {
       render: type => <span className="monospace">{type}</span>,
     },
     {
+      title: "Clone",
+      key: "clone",
+      width: 110,
+      render: (_, record) => (
+        <Button size="small" onClick={() => onClone && onClone(record)} data-test={`CloneDataSource${record.id}`}>
+          Clone
+        </Button>
+      ),
+    },
+    {
+      title: "Delete",
+      key: "delete",
+      width: 110,
+      render: (_, record) => (
+        <Button size="small" danger onClick={() => onDelete && onDelete(record)} data-test={`DeleteDataSource${record.id}`}>
+          Delete
+        </Button>
+      ),
+    },
+    {
       title: "ID",
       dataIndex: "id",
       key: "id",
@@ -107,6 +129,7 @@ class DataSourcesList extends React.Component {
   };
 
   newDataSourceDialog = null;
+  cloneDialog = null;
 
   componentDidMount() {
     Promise.all([DataSource.query(), DataSource.types()])
@@ -136,12 +159,41 @@ class DataSourcesList extends React.Component {
     if (this.newDataSourceDialog) {
       this.newDataSourceDialog.dismiss();
     }
+    if (this.cloneDialog) {
+      this.cloneDialog.dismiss();
+    }
   }
 
   createDataSource = (selectedType, values) => {
-    const target = { options: {}, type: selectedType.type };
-    helper.updateTargetWithValues(target, values);
+    // NGBE_GAME 체크 시 동일 옵션으로 3개의 DS 생성
+    const { ngbe_game, name: baseName, ...restValues } = values;
+    const targetBase = { options: {}, type: selectedType.type };
+    // ngbe_game 플래그는 options에 포함하지 않음
+    helper.updateTargetWithValues(targetBase, { name: baseName, ...restValues });
 
+    if (ngbe_game) {
+      const suffixes = ["BASIC_VIEW", "MKT_VIEW", "REV_VIEW"];
+      const createOne = suffix => {
+        const t = {
+          ...targetBase,
+          options: { ...targetBase.options },
+          type: targetBase.type,
+          name: `${baseName}_${suffix}`,
+        };
+        return DataSource.create(t);
+      };
+      this.setState({ loading: true });
+      return Promise.all(suffixes.map(createOne)).then(results => {
+        // 목록 갱신
+        return DataSource.query().then(dataSources => {
+          this.setState({ dataSources, loading: false });
+          // 첫 번째 생성 결과 반환 (다이얼로그 닫힘용)
+          return results[0];
+        });
+      });
+    }
+
+    const target = targetBase;
     return DataSource.create(target).then(dataSource => {
       this.setState({ loading: true });
       DataSource.query().then(dataSources => this.setState({ dataSources, loading: false }));
@@ -172,6 +224,82 @@ class DataSourcesList extends React.Component {
       });
   };
 
+  onDeleteDataSource = dataSource => {
+    const doDelete = () => {
+      DataSource.delete(dataSource)
+        .then(() => {
+          notification.success("Data source deleted successfully.");
+          this.setState({ loading: true });
+          DataSource.query().then(dataSources => this.setState({ dataSources, loading: false }));
+        })
+        .catch(() => {
+          notification.error("Failed deleting data source.");
+        });
+    };
+
+    Modal.confirm({
+      title: "Delete Data Source",
+      content: `Are you sure you want to delete "${dataSource.name}"?`,
+      okText: "Delete",
+      okType: "danger",
+      onOk: doDelete,
+      maskClosable: true,
+      autoFocusButton: null,
+    });
+  };
+
+  onCloneDataSource = dataSource => {
+    const type = this.state.dataSourceTypes.find(t => t.type === dataSource.type);
+    if (!type) return;
+
+    // Fetch full data source to get options (list view may not include them)
+    DataSource.get({ id: dataSource.id })
+      .then(fullDS => {
+        const fields = helper.getFields(type, fullDS);
+        const secretFieldNames = fields
+          .filter(f => f.type === "password" || f.type === "file")
+          .map(f => f.name);
+
+        const clonedOptions = { ...(fullDS.options || {}) };
+        secretFieldNames.forEach(k => {
+          if (k in clonedOptions) delete clonedOptions[k];
+        });
+
+        const base = fullDS.name || "Data Source";
+        const existingNames = this.state.dataSources.map(ds => ds.name);
+        let candidate = `${base} (copy)`;
+        if (existingNames.includes(candidate)) {
+          let i = 2;
+          while (existingNames.includes(`${base} (copy ${i})`)) i += 1;
+          candidate = `${base} (copy ${i})`;
+        }
+
+        this.cloneDialog = CreateSourceDialog.showModal({
+          types: [type],
+          sourceType: "Data Source",
+          imageFolder: IMG_ROOT,
+          helpTriggerPrefix: "DS_",
+          onCreate: this.createDataSource,
+          defaultSelectedType: type,
+          initialTarget: { name: candidate, options: clonedOptions },
+        });
+
+        this.cloneDialog
+          .onClose((result = {}) => {
+            this.cloneDialog = null;
+            if (result.success) {
+              notification.success("Data source cloned successfully.");
+            }
+          })
+          .onDismiss(() => {
+            this.cloneDialog = null;
+          });
+      })
+      .catch(() => {
+        notification.error("Failed to load data source for cloning.");
+      });
+  };
+
   render() {
     const newDataSourceProps = {
       type: "primary",
@@ -196,6 +324,8 @@ class DataSourcesList extends React.Component {
             name="DataSourcesListComponent"
             dataSources={this.state.dataSources}
             onClickCreate={this.showCreateSourceDialog}
+            onClone={this.onCloneDataSource}
+            onDelete={this.onDeleteDataSource}
           />
         )}
       </div>
