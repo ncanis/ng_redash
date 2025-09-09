@@ -6,6 +6,17 @@ page-query-view {
 .query-page-wrapper {
   width: 100%;
 
+  .page-with-related-sidebar {
+    display: flex;
+    align-items: stretch;
+    min-height: 100%;
+  }
+
+  .page-with-related-main {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
   .query-view-content {
     .query-results {
       margin: 0px 15px 0px;
@@ -104,4 +115,12 @@ page-query-view {
       }
     }
   }
+}
+
+.page-with-related-sidebar { display:flex; align-items:stretch; }
+.page-with-related-main { flex:1 1 auto; min-width:0; }
+
+/* Keep Related by Tag width consistent with Dashboards */
+.page-with-related-sidebar > .related-by-tag-sidebar {
+  flex: 0 0 260px; /* same as component width */
 }

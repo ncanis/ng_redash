@@ -23,6 +23,7 @@ import useDashboard from "./hooks/useDashboard";
 import DashboardHeader from "./components/DashboardHeader";
 
 import "./DashboardPage.less";
+import RelatedByTagSidebar from "@/components/RelatedByTagSidebar";
 
 function DashboardSettings({ dashboardConfiguration }) {
   const { dashboard, updateDashboard } = dashboardConfiguration;
@@ -117,51 +118,51 @@ function DashboardComponent(props) {
   }, [pageContainer, editingLayout]);
 
   return (
-    <div className="container" ref={setPageContainer} data-test={`DashboardId${dashboard.id}Container`}>
-      <DashboardHeader
-        dashboardConfiguration={dashboardConfiguration}
-        headerExtra={
-          <DynamicComponent
-            name="Dashboard.HeaderExtra"
-            dashboard={dashboard}
-            dashboardConfiguration={dashboardConfiguration}
-          />
-        }
-      />
-      {!isEmpty(globalParameters) && (
-        <div className="dashboard-parameters m-b-10 p-15 bg-white tiled" data-test="DashboardParameters">
-          <Parameters
-            parameters={globalParameters}
-            onValuesChange={refreshDashboard}
-            sortable={editingLayout}
-            onParametersEdit={onParametersEdit}
-          />
-        </div>
-      )}
-      {!isEmpty(filters) && (
-        <div className="m-b-10 p-15 bg-white tiled" data-test="DashboardFilters">
-          <Filters filters={filters} onChange={setFilters} />
-        </div>
-      )}
-      {editingLayout && <DashboardSettings dashboardConfiguration={dashboardConfiguration} />}
-      <div id="dashboard-container">
-        <DashboardGrid
-          dashboard={dashboard}
-          widgets={dashboard.widgets}
-          filters={filters}
-          isEditing={editingLayout}
-          onLayoutChange={editingLayout ? saveDashboardLayout : () => {}}
-          onBreakpointChange={setGridDisabled}
-          onLoadWidget={loadWidget}
-          onRefreshWidget={refreshWidget}
-          onRemoveWidget={removeWidget}
-          onParameterMappingsChange={loadDashboard}
+      <div className="container" ref={setPageContainer} data-test={`DashboardId${dashboard.id}Container`}>
+        <DashboardHeader
+          dashboardConfiguration={dashboardConfiguration}
+          headerExtra={
+            <DynamicComponent
+              name="Dashboard.HeaderExtra"
+              dashboard={dashboard}
+              dashboardConfiguration={dashboardConfiguration}
+            />
+          }
         />
+        {!isEmpty(globalParameters) && (
+          <div className="dashboard-parameters m-b-10 p-15 bg-white tiled" data-test="DashboardParameters">
+            <Parameters
+              parameters={globalParameters}
+              onValuesChange={refreshDashboard}
+              sortable={editingLayout}
+              onParametersEdit={onParametersEdit}
+            />
+          </div>
+        )}
+        {!isEmpty(filters) && (
+          <div className="m-b-10 p-15 bg-white tiled" data-test="DashboardFilters">
+            <Filters filters={filters} onChange={setFilters} />
+          </div>
+        )}
+        {editingLayout && <DashboardSettings dashboardConfiguration={dashboardConfiguration} />}
+        <div id="dashboard-container">
+          <DashboardGrid
+            dashboard={dashboard}
+            widgets={dashboard.widgets}
+            filters={filters}
+            isEditing={editingLayout}
+            onLayoutChange={editingLayout ? saveDashboardLayout : () => {}}
+            onBreakpointChange={setGridDisabled}
+            onLoadWidget={loadWidget}
+            onRefreshWidget={refreshWidget}
+            onRemoveWidget={removeWidget}
+            onParameterMappingsChange={loadDashboard}
+          />
+        </div>
+        {editingLayout && (
+          <AddWidgetContainer dashboardConfiguration={dashboardConfiguration} style={bottomPanelStyles} />
+        )}
       </div>
-      {editingLayout && (
-        <AddWidgetContainer dashboardConfiguration={dashboardConfiguration} style={bottomPanelStyles} />
-      )}
-    </div>
   );
 }
 
@@ -187,7 +188,7 @@ function DashboardPage({ dashboardSlug, dashboardId, onError }) {
       .catch(handleError);
   }, [dashboardId, dashboardSlug, handleError]);
 
-  return <div className="dashboard-page">{dashboard && <DashboardComponent dashboard={dashboard} />}</div>;
+return (<div className="dashboard-page"><div className="page-with-related-sidebar"><RelatedByTagSidebar tags={dashboard ? dashboard.tags : []} fetchTagsFromDashboardId={dashboardId} showDashboards showQueries={false} activeDashboardId={dashboardId} />{dashboard && <DashboardComponent dashboard={dashboard} />}</div></div>);
 }
 
 DashboardPage.propTypes = {
@@ -218,3 +219,5 @@ routes.register(
     render: pageProps => <DashboardPage {...pageProps} />,
   })
 );
+
+
