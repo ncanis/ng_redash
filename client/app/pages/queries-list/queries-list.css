@@ -10,3 +10,19 @@
     width: auto;
   }
 }
+
+/* Align Query list sidebar with Tag Sidebar look */
+.page-queries-list .layout-with-sidebar > .layout-sidebar {
+  flex: 0 0 260px;
+  width: 260px;
+  max-width: 260px;
+}
+.page-queries-list .layout-with-sidebar > .layout-sidebar > div {
+  /*background: #E6DED1;  match RelatedByTagSidebar */
+  padding: 8px 10px;
+  border-radius: 0;
+}
+/* Allow content to naturally fill remaining space */
+.page-queries-list .layout-with-sidebar > .layout-content {
+  width: auto;
+}

@@ -12,3 +12,19 @@ div.tags-list {
     width: auto;
   }
 }
+
+/* Align Dashboard list sidebar with Tag Sidebar look */
+.page-dashboard-list .layout-with-sidebar > .layout-sidebar {
+  flex: 0 0 260px;
+  width: 260px;
+  max-width: 260px;
+}
+.page-dashboard-list .layout-with-sidebar > .layout-sidebar > div {
+  
+  padding: 8px 10px;
+  border-radius: 0;
+}
+/* Allow content to naturally fill remaining space */
+.page-dashboard-list .layout-with-sidebar > .layout-content {
+  width: auto;
+}
