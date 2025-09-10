@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+﻿import React, { useEffect, useMemo, useRef, useState } from "react";
 import PropTypes from "prop-types";
 import { uniqBy } from "lodash";
 
@@ -43,6 +43,7 @@ export default function RelatedByTagSidebar({
   const effectiveTags = useMemo(() => (Array.isArray(tags) && tags.length > 0 ? tags : fetchedTags), [tags, fetchedTags]);
   const hasTags = useMemo(() => Array.isArray(effectiveTags) && effectiveTags.length > 0, [effectiveTags]);
   const untaggedMode = useMemo(() => !hasTags, [hasTags]);
+  const [sidebarReady, setSidebarReady] = useState(false);
 
   // Refs to manage auto-scrolling to the active item
   const containerRef = useRef(null);
@@ -57,9 +58,23 @@ export default function RelatedByTagSidebar({
       return () => {};
     }
     if (fetchTagsFromDashboardId) {
-      Dashboard.get({ id: fetchTagsFromDashboardId })
-        .then(d => {
-          if (!cancelled) setFetchedTags(d.tags || []);
+      // Use list API to get tags for the active dashboard (avoid detail API)
+      Dashboard.query({ page: 1, page_size: 250 })
+        .then(({ results }) => {
+          let item = Array.isArray(results)
+            ? results.find(d => String(d.id) === String(fetchTagsFromDashboardId))
+            : null;
+          if (item) return item.tags || [];
+          // Try another page to improve chances without using detail API
+          return Dashboard.query({ page: 2, page_size: 250 }).then(({ results: more }) => {
+            const found = Array.isArray(more)
+              ? more.find(d => String(d.id) === String(fetchTagsFromDashboardId))
+              : null;
+            return found ? found.tags || [] : [];
+          });
+        })
+        .then(t => {
+          if (!cancelled) setFetchedTags(t);
           if (!cancelled) setTagsResolved(true);
         })
         .catch(() => {
@@ -69,9 +84,22 @@ export default function RelatedByTagSidebar({
           }
         });
     } else if (fetchTagsFromQueryId) {
-      Query.get({ id: fetchTagsFromQueryId })
-        .then(q => {
-          if (!cancelled) setFetchedTags(q.tags || []);
+      // Use list API search to find the query by id (avoid detail API)
+      const qStr = String(fetchTagsFromQueryId);
+      Query.query({ q: qStr, page: 1, page_size: 25 })
+        .then(({ results }) => {
+          let item = Array.isArray(results) ? results.find(q => String(q.id) === qStr) : null;
+          if (!item) {
+            // Fallback to a larger unfiltered page
+            return Query.query({ page: 1, page_size: 250 }).then(({ results: all }) => {
+              const found = Array.isArray(all) ? all.find(q => String(q.id) === qStr) : null;
+              return found ? found.tags || [] : [];
+            });
+          }
+          return item.tags || [];
+        })
+        .then(t => {
+          if (!cancelled) setFetchedTags(t);
           if (!cancelled) setTagsResolved(true);
         })
         .catch(() => {
@@ -91,37 +119,37 @@ export default function RelatedByTagSidebar({
 
   useEffect(() => {
     let isCancelled = false;
-    // If tags not yet resolved (we don't know if it's tagged or untagged),
-    // avoid showing the unfiltered list; wait until resolved.
+    // Avoid showing an unfiltered full list before tags resolve.
     if (!tagsResolved) {
       setDashboards([]);
       setQueries([]);
+      setSidebarReady(false);
       return () => {};
     }
+
     const commonParams = hasTags ? { page: 1, page_size: 250, tags: effectiveTags } : { page: 1, page_size: 250 };
 
+    setSidebarReady(false);
 
+    const dashboardsPromise = showDashboards
+      ? Dashboard.query(commonParams)
+          .then(({ results }) => results || [])
+          .then(items => (excludeDashboardId ? items.filter(d => String(d.id) !== String(excludeDashboardId)) : items))
+          .then(items => (isCancelled ? [] : setDashboards(items)))
+          .catch(() => !isCancelled && setDashboards([]))
+      : Promise.resolve().then(() => setDashboards([]));
 
-    if (showDashboards) {
-      Dashboard.query(commonParams)
-        .then(({ results }) => results || [])
-        .then(items => (excludeDashboardId ? items.filter(d => String(d.id) !== String(excludeDashboardId)) : items))
-        .then(items => (isCancelled ? [] : setDashboards(items)))
-        .catch(() => !isCancelled && setDashboards([]));
-    } else {
-      setDashboards([]);
-    }
+    const queriesPromise = showQueries
+      ? Query.query(commonParams)
+          .then(({ results }) => results || [])
+          .then(items => (excludeQueryId ? items.filter(q => String(q.id) !== String(excludeQueryId)) : items))
+          .then(items => (isCancelled ? [] : setQueries(items)))
+          .catch(() => !isCancelled && setQueries([]))
+      : Promise.resolve().then(() => setQueries([]));
 
-    if (showQueries) {
-      Query.query(commonParams)
-        .then(({ results }) => results || [])
-        .then(items => (excludeQueryId ? items.filter(q => String(q.id) !== String(excludeQueryId)) : items))
-        // .then(items => (hasTags ? items: items.filter(q => q.tags.length===0)))
-        .then(items => (isCancelled ? [] : setQueries(items)))
-        .catch(() => !isCancelled && setQueries([]));
-    } else {
-      setQueries([]);
-    }
+    Promise.all([dashboardsPromise.catch(() => {}), queriesPromise.catch(() => {})]).then(() => {
+      if (!isCancelled) setSidebarReady(true);
+    });
 
     return () => {
       isCancelled = true;
@@ -159,7 +187,15 @@ export default function RelatedByTagSidebar({
   return (
     <aside ref={containerRef} className={`related-by-tag-sidebar ${className || ""}`.trim()}>
       <div className="rbts-header tiled">Related by Tag</div>
-            {dashboardItems.length > 0 && (
+      {!sidebarReady && (
+        <div className="rbts-section">
+          <div className="rbts-section-title">Loading...</div>
+          <ul className="rbts-list">
+            <li className="rbts-item">Please wait</li>
+          </ul>
+        </div>
+      )}
+      {sidebarReady && dashboardItems.length > 0 && (
         <Section title="Dashboards">
           <ul className="rbts-list">
             {dashboardItems.map(d => (
@@ -176,7 +212,7 @@ export default function RelatedByTagSidebar({
           </ul>
         </Section>
       )}
-      {queryItems.length > 0 && (
+      {sidebarReady && queryItems.length > 0 && (
         <Section title="Queries">
           <ul className="rbts-list">
             {queryItems.map(q => (
@@ -192,6 +228,11 @@ export default function RelatedByTagSidebar({
             ))}
           </ul>
         </Section>
+      )}
+      {sidebarReady && isEmpty && (
+        <div className="rbts-section">
+          <div className="rbts-section-title">No related items</div>
+        </div>
       )}
     </aside>
   );
@@ -222,6 +263,8 @@ RelatedByTagSidebar.defaultProps = {
   fetchTagsFromQueryId: null,
   className: null,
 };
+
+
 
 
 

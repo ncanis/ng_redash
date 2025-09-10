@@ -188,7 +188,21 @@ function DashboardPage({ dashboardSlug, dashboardId, onError }) {
       .catch(handleError);
   }, [dashboardId, dashboardSlug, handleError]);
 
-return (<div className="dashboard-page"><div className="page-with-related-sidebar"><RelatedByTagSidebar tags={dashboard ? dashboard.tags : []} fetchTagsFromDashboardId={dashboardId} showDashboards showQueries={false} activeDashboardId={dashboardId} />{dashboard && <DashboardComponent dashboard={dashboard} />}</div></div>);
+return (
+  <div className="dashboard-page">
+    <div className="page-with-related-sidebar">
+      <RelatedByTagSidebar
+        fetchTagsFromDashboardId={dashboardId}
+        showDashboards
+        showQueries={false}
+        activeDashboardId={dashboardId}
+      />
+      <div className="page-with-related-main">
+        {dashboard && <DashboardComponent dashboard={dashboard} />}
+      </div>
+    </div>
+  </div>
+);
 }
 
 DashboardPage.propTypes = {
