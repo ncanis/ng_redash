@@ -172,9 +172,17 @@ DashboardComponent.propTypes = {
 
 function DashboardPage({ dashboardSlug, dashboardId, onError }) {
   const [dashboard, setDashboard] = useState(null);
+  const [sidebarReady, setSidebarReady] = useState(false);
   const handleError = useImmutableCallback(onError);
 
   useEffect(() => {
+    // reset readiness on navigation change
+    setSidebarReady(false);
+    setDashboard(null);
+  }, [dashboardId, dashboardSlug]);
+
+  useEffect(() => {
+    if (!sidebarReady) return;
     Dashboard.get({ id: dashboardId, slug: dashboardSlug })
       .then(dashboardData => {
         recordEvent("view", "dashboard", dashboardData.id);
@@ -186,7 +194,7 @@ function DashboardPage({ dashboardSlug, dashboardId, onError }) {
         }
       })
       .catch(handleError);
-  }, [dashboardId, dashboardSlug, handleError]);
+  }, [dashboardId, dashboardSlug, handleError, sidebarReady]);
 
 return (
   <div className="dashboard-page">
@@ -196,6 +204,7 @@ return (
         showDashboards
         showQueries={false}
         activeDashboardId={dashboardId}
+        onReady={() => setSidebarReady(true)}
       />
       <div className="page-with-related-main">
         {dashboard && <DashboardComponent dashboard={dashboard} />}

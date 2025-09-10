@@ -5,12 +5,15 @@ import { Query } from "@/services/query";
 import useImmutableCallback from "@/lib/hooks/useImmutableCallback";
 
 export default function wrapQueryPage(WrappedComponent) {
-  function QueryPageWrapper({ queryId, onError, ...props }) {
+  function QueryPageWrapper({ queryId, onError, readyToLoad, ...props }) {
     const [query, setQuery] = useState(null);
 
     const handleError = useImmutableCallback(onError);
 
     useEffect(() => {
+      if (!readyToLoad) {
+        return undefined;
+      }
       let isCancelled = false;
       const promise = queryId ? Query.get({ id: queryId }) : Promise.resolve(Query.newQuery());
       promise
@@ -24,7 +27,7 @@ export default function wrapQueryPage(WrappedComponent) {
       return () => {
         isCancelled = true;
       };
-    }, [queryId, handleError]);
+    }, [queryId, handleError, readyToLoad]);
 
     if (!query) {
       return <LoadingState className="flex-fill" />;
@@ -35,10 +38,12 @@ export default function wrapQueryPage(WrappedComponent) {
 
   QueryPageWrapper.propTypes = {
     queryId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    readyToLoad: PropTypes.bool,
   };
 
   QueryPageWrapper.defaultProps = {
     queryId: null,
+    readyToLoad: true,
   };
 
   return QueryPageWrapper;

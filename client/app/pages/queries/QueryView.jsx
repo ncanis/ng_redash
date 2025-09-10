@@ -471,12 +471,22 @@ const QueryViewPage = wrapQueryPage(QueryView);
 
 function QueryViewRouteShell(pageProps) {
   const { queryId } = pageProps;
+  const [sidebarReady, setSidebarReady] = useState(false);
+  useEffect(() => {
+    setSidebarReady(false);
+  }, [queryId]);
   return (
     <div className="query-page-wrapper">
       <div className="page-with-related-sidebar">
-        <RelatedByTagSidebar fetchTagsFromQueryId={queryId} showDashboards={false} showQueries activeQueryId={queryId} />
+        <RelatedByTagSidebar
+          fetchTagsFromQueryId={queryId}
+          showDashboards={false}
+          showQueries
+          activeQueryId={queryId}
+          onReady={() => setSidebarReady(true)}
+        />
         <div className="page-with-related-main">
-          <QueryViewPage {...pageProps} />
+          <QueryViewPage {...pageProps} readyToLoad={sidebarReady} />
         </div>
       </div>
     </div>

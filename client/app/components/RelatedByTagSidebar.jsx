@@ -34,6 +34,7 @@ export default function RelatedByTagSidebar({
   activeQueryId,
   fetchTagsFromDashboardId,
   fetchTagsFromQueryId,
+  onReady,
   className,
 }) {
   const [dashboards, setDashboards] = useState([]);
@@ -156,6 +157,15 @@ export default function RelatedByTagSidebar({
     };
   }, [tagsResolved, hasTags, effectiveTags, excludeDashboardId, excludeQueryId, showDashboards, showQueries]);
 
+  // Notify parent when sidebar is ready (first time)
+  useEffect(() => {
+    if (sidebarReady && typeof onReady === "function") {
+      onReady();
+    }
+    // do not add onReady to deps intentionally to avoid re-calls when parent recreates callback
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sidebarReady]);
+
   const dashboardItems = useMemo(() => uniqBy((hasTags ? dashboards : dashboards.filter(d => !(d.tags && d.tags.length))), d => d.id), [dashboards, hasTags]);
   const queryItems = useMemo(() => uniqBy((hasTags ? queries : queries.filter(q => q.tags.length===0 )), q => q.id), [queries, hasTags]);
 
@@ -248,6 +258,7 @@ RelatedByTagSidebar.propTypes = {
   activeQueryId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
   fetchTagsFromDashboardId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
   fetchTagsFromQueryId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  onReady: PropTypes.func,
   className: PropTypes.string,
 };
 
@@ -261,6 +272,7 @@ RelatedByTagSidebar.defaultProps = {
   activeQueryId: null,
   fetchTagsFromDashboardId: null,
   fetchTagsFromQueryId: null,
+  onReady: null,
   className: null,
 };
 
