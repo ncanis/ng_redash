@@ -34,6 +34,7 @@ export default function RelatedByTagSidebar({
   activeQueryId,
   fetchTagsFromDashboardId,
   fetchTagsFromQueryId,
+  queryLinkTo,
   onReady,
   className,
 }) {
@@ -128,23 +129,40 @@ export default function RelatedByTagSidebar({
       return () => {};
     }
 
-    //const commonParams = hasTags ? { page: 1, page_size: 250, tags: effectiveTags } : { page: 1, page_size: 250 };
-    const commonParams = hasTags ? { page: 1, page_size: 250} : { page: 1, page_size: 250 };
-
     setSidebarReady(false);
 
-    const dashboardsPromise = showDashboards
-      ? Dashboard.query(commonParams)
+    const fetchWithAnyTag = (Service, idsToExclude, activeFlag) => {
+      if (!hasTags) {
+        // No tags: fetch first page and filter to untagged later in memo
+        return Service.query({ page: 1, page_size: 250 })
           .then(({ results }) => results || [])
-          .then(items => (excludeDashboardId ? items.filter(d => String(d.id) !== String(excludeDashboardId)) : items))
+          .then(items =>
+            idsToExclude ? items.filter(it => String(it.id) !== String(idsToExclude)) : items
+          );
+      }
+      // Has tags: fetch per-tag with server-side filtering (matches items containing that tag),
+      // then merge client-side with OR semantics and uniq by id.
+      const perTagRequests = effectiveTags.map(t =>
+        Service.query({ page: 1, page_size: 250, tags: [t] })
+          .then(({ results }) => results || [])
+          .catch(() => [])
+      );
+      return Promise.all(perTagRequests).then(pages => {
+        const merged = uniqBy([].concat(...pages), it => it.id);
+        return idsToExclude
+          ? merged.filter(it => String(it.id) !== String(idsToExclude))
+          : merged;
+      });
+    };
+
+    const dashboardsPromise = showDashboards
+      ? fetchWithAnyTag(Dashboard, excludeDashboardId)
           .then(items => (isCancelled ? [] : setDashboards(items)))
           .catch(() => !isCancelled && setDashboards([]))
       : Promise.resolve().then(() => setDashboards([]));
 
     const queriesPromise = showQueries
-      ? Query.query(commonParams)
-          .then(({ results }) => results || [])
-          .then(items => (excludeQueryId ? items.filter(q => String(q.id) !== String(excludeQueryId)) : items))
+      ? fetchWithAnyTag(Query, excludeQueryId)
           .then(items => (isCancelled ? [] : setQueries(items)))
           .catch(() => !isCancelled && setQueries([]))
       : Promise.resolve().then(() => setQueries([]));
@@ -250,7 +268,7 @@ export default function RelatedByTagSidebar({
                 key={`q-${q.id}`}
                 ref={String(q.id) === String(activeQueryId) ? activeItemRef : null}
                 className={`rbts-item${String(q.id) === String(activeQueryId) ? " active" : ""}`.trim()}>
-                <Link href={`queries/${q.id}`} title={q.name}>
+                <Link href={queryLinkTo === "edit" ? `/queries/${q.id}/source` : `/queries/${q.id}`} title={q.name}>
                   <i className="fa fa-code m-r-5" aria-hidden="true" />
                   <span className="rbts-item-text">{q.name}</span>
                 </Link>
@@ -278,6 +296,7 @@ RelatedByTagSidebar.propTypes = {
   activeQueryId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
   fetchTagsFromDashboardId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
   fetchTagsFromQueryId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  queryLinkTo: PropTypes.oneOf(["view", "edit"]),
   onReady: PropTypes.func,
   className: PropTypes.string,
 };
@@ -292,6 +311,7 @@ RelatedByTagSidebar.defaultProps = {
   activeQueryId: null,
   fetchTagsFromDashboardId: null,
   fetchTagsFromQueryId: null,
+  queryLinkTo: "view",
   onReady: null,
   className: null,
 };

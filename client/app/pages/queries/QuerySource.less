@@ -1,4 +1,12 @@
+.fixed-layout .query-page-wrapper {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
 .query-fullscreen {
+  display: flex;
+  flex: 1 1 auto;
   .query-editor-wrapper {
     padding: 15px;
     margin-bottom: 10px;
@@ -91,4 +99,23 @@
       }
     }
   }
+}
+
+// Layout helpers for pages with the RelatedByTagSidebar
+.page-with-related-sidebar { display: flex; align-items: stretch; }
+.page-with-related-main { flex: 1 1 auto; min-width: 0; }
+.page-with-related-sidebar > .related-by-tag-sidebar { flex: 0 0 260px; }
+.fixed-layout .page-with-related-sidebar { min-height: 100vh; }
+
+// Ensure inner wrapper stretches to parent height in edit page
+.fixed-layout .page-with-related-main > .query-page-wrapper {
+  min-height: 100%;
+}
+
+// Ensure the main content area fills the remaining space next to the sidebar
+.query-fullscreen > .content {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
 }

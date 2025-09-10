@@ -45,6 +45,7 @@ import useUnsavedChangesAlert from "./hooks/useUnsavedChangesAlert";
 
 import "./components/QuerySourceDropdown"; // register QuerySourceDropdown
 import "./QuerySource.less";
+import RelatedByTagSidebar from "@/components/RelatedByTagSidebar";
 
 function chooseDataSourceId(dataSourceIds, availableDataSources) {
   availableDataSources = map(availableDataSources, ds => ds.id);
@@ -426,6 +427,31 @@ QuerySource.propTypes = {
 
 const QuerySourcePage = wrapQueryPage(QuerySource);
 
+function QuerySourceRouteShell(pageProps) {
+  const { queryId } = pageProps;
+  const [sidebarReady, setSidebarReady] = useState(false);
+  useEffect(() => {
+    setSidebarReady(false);
+  }, [queryId]);
+  return (
+    <div className="query-page-wrapper">
+      <div className="page-with-related-sidebar">
+        <RelatedByTagSidebar
+          fetchTagsFromQueryId={queryId}
+          showDashboards={false}
+          showQueries
+          activeQueryId={queryId}
+          queryLinkTo="edit"
+          onReady={() => setSidebarReady(true)}
+        />
+        <div className="page-with-related-main">
+          <QuerySourcePage {...pageProps} readyToLoad={sidebarReady} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 routes.register(
   "Queries.New",
   routeWithUserSession({
@@ -438,7 +464,7 @@ routes.register(
   "Queries.Edit",
   routeWithUserSession({
     path: "/queries/:queryId/source",
-    render: pageProps => <QuerySourcePage {...pageProps} />,
+    render: pageProps => <QuerySourceRouteShell {...pageProps} />,
     bodyClass: "fixed-layout",
   })
 );
