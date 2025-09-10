@@ -63,7 +63,7 @@ export default function RelatedByTagSidebar({
       Dashboard.query({ page: 1, page_size: 250 })
         .then(({ results }) => {
           let item = Array.isArray(results)
-            ? results.find(d => String(d.id) === String(fetchTagsFromDashboardId))
+            ? results.find(d => String(d.id)=== String(fetchTagsFromDashboardId))
             : null;
           if (item) return item.tags || [];
           // Try another page to improve chances without using detail API
@@ -128,7 +128,8 @@ export default function RelatedByTagSidebar({
       return () => {};
     }
 
-    const commonParams = hasTags ? { page: 1, page_size: 250, tags: effectiveTags } : { page: 1, page_size: 250 };
+    //const commonParams = hasTags ? { page: 1, page_size: 250, tags: effectiveTags } : { page: 1, page_size: 250 };
+    const commonParams = hasTags ? { page: 1, page_size: 250} : { page: 1, page_size: 250 };
 
     setSidebarReady(false);
 
@@ -166,8 +167,27 @@ export default function RelatedByTagSidebar({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sidebarReady]);
 
-  const dashboardItems = useMemo(() => uniqBy((hasTags ? dashboards : dashboards.filter(d => !(d.tags && d.tags.length))), d => d.id), [dashboards, hasTags]);
-  const queryItems = useMemo(() => uniqBy((hasTags ? queries : queries.filter(q => q.tags.length===0 )), q => q.id), [queries, hasTags]);
+  const dashboardItems = useMemo(() => {
+    if (!hasTags) {
+      return uniqBy(
+        dashboards.filter(d => !(d.tags && d.tags.length)),
+        d => d.id
+      );
+    }
+    // When tags are present, include dashboards that share at least one tag
+    const items = dashboards.filter(d => Array.isArray(d.tags) && d.tags.some(t => effectiveTags.includes(t)));
+    return uniqBy(items, d => d.id);
+  }, [dashboards, hasTags, effectiveTags]);
+  const queryItems = useMemo(() => {
+    if (!hasTags) {
+      return uniqBy(
+        queries.filter(q => !(q.tags && q.tags.length)),
+        q => q.id
+      );
+    }
+    const items = queries.filter(q => Array.isArray(q.tags) && q.tags.some(t => effectiveTags.includes(t)));
+    return uniqBy(items, q => q.id);
+  }, [queries, hasTags, effectiveTags]);
 
   const isEmpty = dashboardItems.length === 0 && queryItems.length === 0;
 
