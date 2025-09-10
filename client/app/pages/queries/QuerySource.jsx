@@ -441,7 +441,6 @@ function QuerySourceRouteShell(pageProps) {
           showDashboards={false}
           showQueries
           activeQueryId={queryId}
-          queryLinkTo="edit"
           onReady={() => setSidebarReady(true)}
         />
         <div className="page-with-related-main">

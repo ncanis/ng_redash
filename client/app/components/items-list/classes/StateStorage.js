@@ -46,6 +46,26 @@ export class UrlStateStorage extends StateStorage {
     } else if (typeof tagsParam === "string") {
       selectedTags = tagsParam.split(",").filter(Boolean);
     }
+    // Fallback to last selected tags from localStorage when URL has none
+    if (!selectedTags.length) {
+      try {
+        const path = location.path || "";
+        let ns = null;
+        if (path.indexOf("/dashboards") === 0) ns = "dashboards";
+        else if (path.indexOf("/queries") === 0) ns = "queries";
+        if (ns) {
+          const raw = localStorage.getItem(`lastSelectedTags:${ns}`);
+          if (raw) {
+            const saved = JSON.parse(raw);
+            if (Array.isArray(saved)) {
+              selectedTags = saved.filter(v => typeof v === "string" && v.length > 0);
+            }
+          }
+        }
+      } catch (e) {
+        // ignore storage errors
+      }
+    }
 
     return {
       page: parseInt(params.page, 10) || defaultState.page,
@@ -70,5 +90,20 @@ export class UrlStateStorage extends StateStorage {
       },
       true
     );
+    // Persist last selected tags in localStorage by section
+    try {
+      const path = location.path || "";
+      let ns = null;
+      if (path.indexOf("/dashboards") === 0) ns = "dashboards";
+      else if (path.indexOf("/queries") === 0) ns = "queries";
+      if (ns) {
+        localStorage.setItem(
+          `lastSelectedTags:${ns}`,
+          JSON.stringify(Array.isArray(selectedTags) ? selectedTags : [])
+        );
+      }
+    } catch (e) {
+      // ignore storage errors
+    }
   }
 }
