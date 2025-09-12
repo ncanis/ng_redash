@@ -25,12 +25,40 @@ function TagsList({ tagsUrl, showUnselectAll = false, onUpdate, selected = [] }:
   const [allTags, setAllTags] = useState<Tag[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>(selected || []);
 
+  const compareByLanguageThenAlpha = useCallback((aName: string, bName: string) => {
+    const a = String(aName || "").trim();
+    const b = String(bName || "").trim();
+    const aCh = a.charAt(0);
+    const bCh = b.charAt(0);
+
+    const isAsciiLetter = (ch: string) => /[A-Za-z]/.test(ch);
+    const isHangul = (ch: string) => {
+      if (!ch) return false;
+      const code = ch.charCodeAt(0);
+      return (
+        (code >= 0xac00 && code <= 0xd7a3) || // Hangul Syllables
+        (code >= 0x1100 && code <= 0x11ff) || // Hangul Jamo
+        (code >= 0x3130 && code <= 0x318f) // Hangul Compatibility Jamo
+      );
+    };
+
+    const group = (ch: string) => (isAsciiLetter(ch) ? 0 : isHangul(ch) ? 1 : 2);
+    const gA = group(aCh);
+    const gB = group(bCh);
+    if (gA !== gB) return gA - gB; // English (0) first, then Hangul (1), then others (2)
+
+    // Within group, sort alphabetically (case-insensitive). Use locale for Korean.
+    const locale = gA === 1 ? "ko" : "en";
+    return a.localeCompare(b, locale, { sensitivity: "base" });
+  }, []);
+
   useEffect(() => {
     let isCancelled = false;
 
     getTags(tagsUrl).then(tags => {
       if (!isCancelled) {
-        setAllTags(tags);
+        const sorted = [...tags].sort((a, b) => compareByLanguageThenAlpha(a.name, b.name));
+        setAllTags(sorted);
       }
     });
 
