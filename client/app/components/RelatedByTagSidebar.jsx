@@ -48,31 +48,54 @@ export default function RelatedByTagSidebar({
   const untaggedMode = useMemo(() => !hasTags, [hasTags]);
   const [sidebarReady, setSidebarReady] = useState(false);
 
-  // English > Hangul > others; then alphabetical within group
-  const compareByLanguageThenAlpha = (aName, bName) => {
-    const a = String(aName || "").trim();
-    const b = String(bName || "").trim();
-    const aCh = a.charAt(0);
-    const bCh = b.charAt(0);
+  // Multi-level comparator per spec:
+  // 1) Names containing "Redshift" first (case-insensitive)
+  // 2) English A-Z group before Hangul ㄱ-ㅎ, then others
+  // 3) Alphabetical within group (locale-aware)
+  // 4) Creation date as final tie-breaker (older first)
+  const isAsciiLetter = ch => /[A-Za-z]/.test(ch);
+  const isHangul = ch => {
+    if (!ch) return false;
+    const code = ch.charCodeAt(0);
+    return (
+      (code >= 0xac00 && code <= 0xd7a3) || // Hangul Syllables
+      (code >= 0x1100 && code <= 0x11ff) || // Hangul Jamo
+      (code >= 0x3130 && code <= 0x318f) // Hangul Compatibility Jamo
+    );
+  };
+  const textGroup = text => {
+    const ch = String(text || "").trim().charAt(0);
+    return isAsciiLetter(ch) ? 0 : isHangul(ch) ? 1 : 2; // 0: English, 1: Hangul, 2: Others
+  };
+  const containsRedshift = text => /redshift/i.test(String(text || ""));
+  const parseCreatedAt = item => {
+    const t = Date.parse(item && (item.created_at || item.createdAt));
+    return Number.isFinite(t) ? t : 0;
+  };
 
-    const isAsciiLetter = ch => /[A-Za-z]/.test(ch);
-    const isHangul = ch => {
-      if (!ch) return false;
-      const code = ch.charCodeAt(0);
-      return (
-        (code >= 0xac00 && code <= 0xd7a3) || // Hangul Syllables
-        (code >= 0x1100 && code <= 0x11ff) || // Hangul Jamo
-        (code >= 0x3130 && code <= 0x318f) // Hangul Compatibility Jamo
-      );
-    };
+  const compareItems = (a, b) => {
+    const aName = String(a && a.name ? a.name : "").trim();
+    const bName = String(b && b.name ? b.name : "").trim();
 
-    const group = ch => (isAsciiLetter(ch) ? 0 : isHangul(ch) ? 1 : 2);
-    const gA = group(aCh);
-    const gB = group(bCh);
-    if (gA !== gB) return gA - gB;
+    const aHas = containsRedshift(aName);
+    const bHas = containsRedshift(bName);
+    if (aHas && !bHas) return -1;
+    if (!aHas && bHas) return 1;
+
+    const gA = textGroup(aName);
+    const gB = textGroup(bName);
+    if (gA !== gB) return gA - gB; // English (0) before Hangul (1) before Others (2)
 
     const locale = gA === 1 ? "ko" : "en";
-    return a.localeCompare(b, locale, { sensitivity: "base" });
+    const nameCmp = aName.localeCompare(bName, locale, { sensitivity: "base" });
+    if (nameCmp !== 0) return nameCmp;
+
+    const tA = parseCreatedAt(a);
+    const tB = parseCreatedAt(b);
+    if (tA !== tB) return tA - tB; // older first
+
+    // deterministic final fallback
+    return String(a.id || "").localeCompare(String(b.id || ""));
   };
 
   // Refs to manage auto-scrolling to the active item
@@ -260,11 +283,11 @@ export default function RelatedByTagSidebar({
         dashboards.filter(d => !(d.tags && d.tags.length)),
         d => d.id
       );
-      return untagged.sort((a, b) => compareByLanguageThenAlpha(a.name, b.name));
+      return untagged.sort(compareItems);
     }
     // When tags are present, include dashboards that share at least one tag
     const items = dashboards.filter(d => Array.isArray(d.tags) && d.tags.some(t => effectiveTags.includes(t)));
-    return uniqBy(items, d => d.id).sort((a, b) => compareByLanguageThenAlpha(a.name, b.name));
+    return uniqBy(items, d => d.id).sort(compareItems);
   }, [dashboards, hasTags, effectiveTags]);
   const queryItems = useMemo(() => {
     if (!hasTags) {
@@ -272,16 +295,17 @@ export default function RelatedByTagSidebar({
         queries.filter(q => !(q.tags && q.tags.length)),
         q => q.id
       );
-      return untagged.sort((a, b) => compareByLanguageThenAlpha(a.name, b.name));
+      return untagged.sort(compareItems);
     }
     const items = queries.filter(q => Array.isArray(q.tags) && q.tags.some(t => effectiveTags.includes(t)));
-    return uniqBy(items, q => q.id).sort((a, b) => compareByLanguageThenAlpha(a.name, b.name));
+    return uniqBy(items, q => q.id).sort(compareItems);
   }, [queries, hasTags, effectiveTags]);
 
   // Compute where the active item would be placed in the sorted list and pick a neighbor
   const dashboardAnchorId = useMemo(() => {
     if (!anchorName || dashboardItems.length === 0) return null;
-    let idx = dashboardItems.findIndex(d => compareByLanguageThenAlpha(d.name, anchorName) >= 0);
+    const virtual = { name: anchorName, created_at: 0 };
+    let idx = dashboardItems.findIndex(d => compareItems(d, virtual) >= 0);
     if (idx < 0) idx = dashboardItems.length - 1;
     const target = dashboardItems[Math.max(0, Math.min(idx, dashboardItems.length - 1))];
     return target ? target.id : null;
@@ -289,7 +313,8 @@ export default function RelatedByTagSidebar({
 
   const queryAnchorId = useMemo(() => {
     if (!anchorName || queryItems.length === 0) return null;
-    let idx = queryItems.findIndex(q => compareByLanguageThenAlpha(q.name, anchorName) >= 0);
+    const virtual = { name: anchorName, created_at: 0 };
+    let idx = queryItems.findIndex(q => compareItems(q, virtual) >= 0);
     if (idx < 0) idx = queryItems.length - 1;
     const target = queryItems[Math.max(0, Math.min(idx, queryItems.length - 1))];
     return target ? target.id : null;
