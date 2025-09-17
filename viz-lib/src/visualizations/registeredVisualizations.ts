@@ -7,6 +7,7 @@ import choroplethVisualization from "./choropleth";
 import cohortVisualization from "./cohort";
 import counterVisualization from "./counter";
 import detailsVisualization from "./details";
+import htmlViewVisualization from "./html-view";
 import funnelVisualization from "./funnel";
 import mapVisualization from "./map";
 import pivotVisualization from "./pivot";
@@ -84,6 +85,7 @@ each(
     cohortVisualization,
     counterVisualization,
     detailsVisualization,
+    htmlViewVisualization,
     funnelVisualization,
     mapVisualization,
     pivotVisualization,
@@ -117,3 +119,4 @@ export function newVisualization(type = null, options = {}) {
     options,
   };
 }
+

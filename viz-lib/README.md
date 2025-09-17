@@ -78,6 +78,7 @@ function Example() {
 - Cohort: `COHORT`
 - Counter: `COUNTER`
 - Details View: `DETAILS`
+- HTML View: `HTML_VIEW`
 - Funnel: `FUNNEL`
 - Map (Choropleth): `CHOROPLETH`
 - Map (Markers): `MAP`
@@ -184,3 +185,4 @@ export default function App() {
 ## License
 
 BSD-2-Clause.
+
